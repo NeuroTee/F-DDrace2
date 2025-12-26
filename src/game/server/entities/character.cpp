@@ -2901,6 +2901,9 @@ void CCharacter::HandleTiles(int Index)
 		{
 			m_ProcessedMoneyTile = true; // when multiple speedups on a moneytile face into each other the player skips multiple tiles in one tick leading to doubled xp and money
 
+			if (m_pPlayer->m_AfkMode && Config()->m_SvAfkEnable)
+				return;
+
 			// Disallow money farm in ddrace team
 			if (Config()->m_SvMoneyFarmTeam == 0 && Team() != TEAM_FLOCK)
 				return;
