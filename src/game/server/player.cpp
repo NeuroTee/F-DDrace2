@@ -66,8 +66,6 @@ void CPlayer::Reset()
 	m_DefEmote = EMOTE_NORMAL;
 	m_Afk = true;
 	m_AfkMode = false;
-	m_AfkModeEnableTick = 0;
-	m_AfkModeInputSet = false;
 	m_LastWhisperTo = -1;
 	m_LastSetSpectatorMode = 0;
 	m_TimeoutCode[0] = '\0';
@@ -1206,27 +1204,10 @@ void CPlayer::OnDirectInput(CNetObj_PlayerInput *NewInput, bool TeeControlled)
 	AfkVoteTimer(NewInput);
 	if (m_AfkMode && GameServer()->Config()->m_SvAfkAutoDisableOnInput)
 	{
-		if (m_AfkModeEnableTick && m_AfkModeEnableTick + Server()->TickSpeed() / 2 > Server()->Tick())
-		{
-			// Ignore the initial input burst after toggling AFK.
-		}
-		else
-		{
-			if (!m_AfkModeInputSet)
-			{
-				m_AfkModeInput = *NewInput;
-				m_AfkModeInputSet = true;
-			}
-			else
-			{
-				bool ActiveInput = NewInput->m_Direction != m_AfkModeInput.m_Direction
-					|| NewInput->m_Jump != m_AfkModeInput.m_Jump
-					|| NewInput->m_Hook != m_AfkModeInput.m_Hook
-					|| ((NewInput->m_Fire & 1) != (m_AfkModeInput.m_Fire & 1));
-				if (ActiveInput)
-					SetAfkMode(false);
-			}
-		}
+		bool ActiveInput = NewInput->m_Direction != 0 || NewInput->m_Jump != 0 || NewInput->m_Hook != 0
+			|| (NewInput->m_Fire & 1) || NewInput->m_WantedWeapon != 0;
+		if (ActiveInput)
+			SetAfkMode(false);
 	}
 
 	if(GameServer()->m_World.m_Paused)
@@ -2674,13 +2655,6 @@ void CPlayer::SetAfkMode(bool Afk, bool Silent)
 		return;
 
 	m_AfkMode = Afk;
-	m_AfkModeEnableTick = Afk ? Server()->Tick() : 0;
-	m_AfkModeInputSet = false;
-	if (Afk && m_pCharacter)
-	{
-		m_AfkModeInput = *m_pCharacter->Input();
-		m_AfkModeInputSet = true;
-	}
 	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.m_Core.SetAfk(m_ClientID, Afk);
 
 	if (!Silent)
