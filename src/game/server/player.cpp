@@ -65,6 +65,9 @@ void CPlayer::Reset()
 	m_EyeEmote = true;
 	m_DefEmote = EMOTE_NORMAL;
 	m_Afk = true;
+	m_AfkMode = false;
+	m_AfkModeEnableTick = 0;
+	m_AfkModeInputSet = false;
 	m_LastWhisperTo = -1;
 	m_LastSetSpectatorMode = 0;
 	m_TimeoutCode[0] = '\0';
@@ -111,6 +114,7 @@ void CPlayer::Reset()
 	m_NinjaJetpack = false;
 
 	m_Paused = PAUSE_NONE;
+	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.m_Core.SetAfk(m_ClientID, false);
 
 	m_LastPause = 0;
 	m_Score = -1;
@@ -1097,6 +1101,7 @@ void CPlayer::OnDisconnect()
 
 	CGameControllerDDRace* Controller = (CGameControllerDDRace*)GameServer()->m_pController;
 	Controller->m_Teams.SetForceCharacterTeam(m_ClientID, 0);
+	Controller->m_Teams.m_Core.SetAfk(m_ClientID, false);
 
 	GameServer()->m_VotingMenu.Reset(m_ClientID);
 
@@ -1199,6 +1204,30 @@ void CPlayer::OnDirectInput(CNetObj_PlayerInput *NewInput, bool TeeControlled)
 	if (AfkTimer(NewInput->m_TargetX, NewInput->m_TargetY))
 		return; // we must return if kicked, as player struct is already deleted
 	AfkVoteTimer(NewInput);
+	if (m_AfkMode && GameServer()->Config()->m_SvAfkAutoDisableOnInput)
+	{
+		if (m_AfkModeEnableTick && m_AfkModeEnableTick + Server()->TickSpeed() / 2 > Server()->Tick())
+		{
+			// Ignore the initial input burst after toggling AFK.
+		}
+		else
+		{
+			if (!m_AfkModeInputSet)
+			{
+				m_AfkModeInput = *NewInput;
+				m_AfkModeInputSet = true;
+			}
+			else
+			{
+				bool ActiveInput = NewInput->m_Direction != m_AfkModeInput.m_Direction
+					|| NewInput->m_Jump != m_AfkModeInput.m_Jump
+					|| NewInput->m_Hook != m_AfkModeInput.m_Hook
+					|| ((NewInput->m_Fire & 1) != (m_AfkModeInput.m_Fire & 1));
+				if (ActiveInput)
+					SetAfkMode(false);
+			}
+		}
+	}
 
 	if(GameServer()->m_World.m_Paused)
 	{
@@ -2637,6 +2666,27 @@ bool CPlayer::SilentFarmActive()
 	if (GameServer()->Config()->m_SvPoliceFarmLimit && m_pCharacter && m_pCharacter->m_MoneyTile == CCharacter::MONEYTILE_POLICE)
 		return false;
 	return m_SilentFarm && m_pCharacter && m_pCharacter->m_MoneyTile && !m_Paused && m_Team != TEAM_SPECTATORS;
+}
+
+void CPlayer::SetAfkMode(bool Afk, bool Silent)
+{
+	if (m_AfkMode == Afk)
+		return;
+
+	m_AfkMode = Afk;
+	m_AfkModeEnableTick = Afk ? Server()->Tick() : 0;
+	m_AfkModeInputSet = false;
+	if (Afk && m_pCharacter)
+	{
+		m_AfkModeInput = *m_pCharacter->Input();
+		m_AfkModeInputSet = true;
+	}
+	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.m_Core.SetAfk(m_ClientID, Afk);
+
+	if (!Silent)
+	{
+		GameServer()->SendChatTarget(m_ClientID, Afk ? Localize("AFK mode enabled") : Localize("AFK mode disabled"));
+	}
 }
 
 void CPlayer::OnSetAfk()
