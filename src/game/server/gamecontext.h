@@ -900,6 +900,7 @@ private:
 	static void ConTogglePauseVoted(IConsole::IResult* pResult, void* pUserData);
 	static void ConToggleSpec(IConsole::IResult* pResult, void* pUserData);
 	static void ConToggleSpecVoted(IConsole::IResult* pResult, void* pUserData);
+	static void ConAfk(IConsole::IResult* pResult, void* pUserData);
 	static void ConForcePause(IConsole::IResult* pResult, void* pUserData);
 	static void ConTeamTop5(IConsole::IResult *pResult, void *pUserData);
 	static void ConTop5(IConsole::IResult* pResult, void* pUserData);

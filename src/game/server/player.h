@@ -251,6 +251,10 @@ public:
 	bool m_VotedForPractice;
 
 	bool m_Afk;
+	bool m_AfkMode;
+	int m_AfkModeEnableTick;
+
+	void SetAfkMode(bool Afk, bool Silent = false);
 
 	// F-DDrace
 
