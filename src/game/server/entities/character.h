@@ -458,6 +458,7 @@ public:
 	bool m_OldFakeTuneCollision;
 	bool m_Passive;
 	int m_PassiveSnapID;
+	int m_AfkIndicatorSnapID;
 	int m_Item;
 	CPickup* m_pItem;
 	bool m_PoliceHelper;
