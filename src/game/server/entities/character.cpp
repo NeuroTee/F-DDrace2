@@ -91,6 +91,7 @@ CCharacter::~CCharacter()
 	for (int i = 0; i < EUntranslatedMap::NUM_IDS; i++)
 		Server()->SnapFreeID(m_aUntranslatedID[i]);
 	Server()->SnapFreeID(m_PassiveSnapID);
+	Server()->SnapFreeID(m_AfkIndicatorSnapID);
 }
 
 void CCharacter::Reset()
@@ -1911,6 +1912,19 @@ void CCharacter::Die(int Weapon, bool UpdateTeeControl, bool OnArenaDie)
 
 bool CCharacter::TakeDamage(vec2 Force, vec2 Source, int Dmg, int From, int Weapon)
 {
+	if (m_pPlayer->m_AfkMode && Config()->m_SvAfkEnable)
+	{
+		if (From < 0)
+		{
+			if (Config()->m_SvAfkProtectFromWorld)
+				return false;
+		}
+		else if (From != m_pPlayer->GetCID())
+		{
+			return false;
+		}
+	}
+
 	// avoid farming by shooting people with gun for example, because it doesnt change velocity so it doesnt influence whether you died or not
 	bool SetKiller = (m_pPlayer->m_Gamemode == GAMEMODE_VANILLA || (Weapon != WEAPON_GUN && Weapon != WEAPON_HEART_GUN && Weapon != WEAPON_LIGHTSABER));
 	if (SetKiller && GameServer()->m_apPlayers[From] && From != m_pPlayer->GetCID())
@@ -2141,6 +2155,25 @@ void CCharacter::Snap(int SnappingClient)
 
 		pP->m_X = round_to_int(m_Pos.x);
 		pP->m_Y = round_to_int(m_Pos.y - 50.f);
+		if (Server()->IsSevendown(SnappingClient))
+		{
+			int Subtype = 0;
+			pP->m_Type = POWERUP_ARMOR;
+			((int*)pP)[3] = Subtype;
+		}
+		else
+			pP->m_Type = PICKUP_ARMOR;
+	}
+
+	if (m_pPlayer->m_AfkMode && GameServer()->Config()->m_SvAfkEnable)
+	{
+		int Size = Server()->IsSevendown(SnappingClient) ? 4*4 : sizeof(CNetObj_Pickup);
+		CNetObj_Pickup* pP = static_cast<CNetObj_Pickup*>(Server()->SnapNewItem(NETOBJTYPE_PICKUP, m_AfkIndicatorSnapID, Size));
+		if (!pP)
+			return;
+
+		pP->m_X = round_to_int(m_Pos.x);
+		pP->m_Y = round_to_int(m_Pos.y - 70.f);
 		if (Server()->IsSevendown(SnappingClient))
 		{
 			int Subtype = 0;
@@ -2646,12 +2679,16 @@ void CCharacter::HandleSkippableTiles(int Index)
 		GameServer()->Collision()->GetFCollisionAt(m_Pos.x - GetProximityRadius() / 3.f, m_Pos.y + GetProximityRadius() / 3.f) == TILE_DEATH) &&
 		!m_Super && !(Team() && Teams()->TeeFinished(m_pPlayer->GetCID())))
 	{
+		if (m_pPlayer->m_AfkMode && Config()->m_SvAfkEnable && Config()->m_SvAfkProtectFromWorld)
+			return;
 		Die(WEAPON_WORLD);
 		return;
 	}
 
 	if (GameLayerClipped(m_Pos))
 	{
+		if (m_pPlayer->m_AfkMode && Config()->m_SvAfkEnable && Config()->m_SvAfkProtectFromWorld)
+			return;
 		Die(WEAPON_WORLD);
 		return;
 	}
@@ -4211,6 +4248,7 @@ void CCharacter::FDDraceInit()
 	m_OldFakeTuneCollision = false;
 	m_Passive = false;
 	m_PassiveSnapID = Server()->SnapNewID();
+	m_AfkIndicatorSnapID = Server()->SnapNewID();
 	m_PoliceHelper = false;
 	m_pTelekinesisEntity = 0;
 	m_pLightsaber = 0;
