@@ -1,5 +1,6 @@
 /* (c) Shereef Marzouk. See "licence DDRace.txt" and the readme.txt in the root of the distribution for more information. */
 #include "gamecontext.h"
+#include <base/vmath.h>
 #include <engine/engine.h>
 #include <engine/shared/config.h>
 #include <engine/shared/protocol.h>
@@ -330,6 +331,51 @@ void CGameContext::ConTogglePause(IConsole::IResult *pResult, void *pUserData)
 void CGameContext::ConTogglePauseVoted(IConsole::IResult *pResult, void *pUserData)
 {
 	ToggleSpecPauseVoted(pResult, pUserData, CPlayer::PAUSE_PAUSED);
+}
+
+void CGameContext::ConAfk(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	int ClientID = pResult->m_ClientID;
+	if (!CheckClientID(ClientID))
+		return;
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if (!pPlayer)
+		return;
+
+	if (!pSelf->Config()->m_SvAfkEnable)
+	{
+		pSelf->SendChatTarget(ClientID, pPlayer->Localize("AFK mode is disabled on this server"));
+		return;
+	}
+
+	if (pPlayer->m_AfkMode)
+	{
+		pPlayer->SetAfkMode(false);
+		return;
+	}
+
+	if (pPlayer->IsMinigame() || pSelf->Arenas()->FightStarted(ClientID) || pSelf->Durak()->InDurakGame(ClientID))
+	{
+		pSelf->SendChatTarget(ClientID, pPlayer->Localize("You cannot enable AFK while you are in a minigame"));
+		return;
+	}
+
+	CCharacter *pChr = pPlayer->GetCharacter();
+	if (pChr)
+	{
+		const CNetObj_PlayerInput *pInput = pChr->Input();
+		bool Moving = length(pChr->Core()->m_Vel) > 0.01f;
+		bool HasInput = pInput->m_Direction != 0 || pInput->m_Jump != 0 || pInput->m_Hook != 0 || (pInput->m_Fire & 1);
+		if (Moving || HasInput)
+		{
+			pSelf->SendChatTarget(ClientID, pPlayer->Localize("You must stop moving before enabling AFK mode"));
+			return;
+		}
+	}
+
+	pPlayer->SetAfkMode(true);
 }
 
 void CGameContext::ConTeamTop5(IConsole::IResult *pResult, void *pUserData)
