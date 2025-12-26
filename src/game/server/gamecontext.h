@@ -962,6 +962,7 @@ private:
 	static void ConPin(IConsole::IResult* pResult, void* pUserData);
 
 	static void ConPayMoney(IConsole::IResult* pResult, void* pUserData);
+	static void ConDailyReward(IConsole::IResult* pResult, void* pUserData);
 	static void ConMoney(IConsole::IResult* pResult, void* pUserData);
 	static void ConPortal(IConsole::IResult* pResult, void* pUserData);
 
