@@ -468,7 +468,7 @@ int CBank::GetAmount(int Type, int ClientID)
 	}
 }
 
-int CBank::GetCreditTermDays(int Type)
+int CBank::GetCreditTermDays(int Type) const
 {
 	switch (Type)
 	{
@@ -481,17 +481,17 @@ int CBank::GetCreditTermDays(int Type)
 	}
 }
 
-bool CBank::IsAmountPage(int Page)
+bool CBank::IsAmountPage(int Page) const
 {
 	return Page >= AMOUNT_EVERYTHING && Page <= AMOUNT_100MIL;
 }
 
-bool CBank::IsTermPage(int Page)
+bool CBank::IsTermPage(int Page) const
 {
 	return Page >= TERM_1D && Page <= TERM_30D;
 }
 
-int CBank::GetFirstCreditAmountPage(int ClientID)
+int CBank::GetFirstCreditAmountPage(int ClientID) const
 {
 	int MinAmount = GameServer()->Config()->m_SvBankCreditMinAmount;
 	int MaxAmount = GameServer()->Config()->m_SvBankCreditMaxAmount;
@@ -522,7 +522,7 @@ int CBank::GetFirstCreditAmountPage(int ClientID)
 	return PAGE_NONE;
 }
 
-int CBank::GetFirstCreditTermPage()
+int CBank::GetFirstCreditTermPage() const
 {
 	int MinDays = GameServer()->Config()->m_SvBankCreditMinDays;
 	int MaxDays = GameServer()->Config()->m_SvBankCreditMaxDays;
