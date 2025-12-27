@@ -35,7 +35,6 @@ class CBank : public CHouse
 {
 private:
 	int GetAmount(int Type, int ClientID = -1);
-	int GetFixedAmount(int Type);
 	bool IsAmountPage(int Page) const;
 	int m_aAssignmentMode[MAX_CLIENTS];
 	bool NotLoggedIn(int ClientID);

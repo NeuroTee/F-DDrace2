@@ -2509,7 +2509,14 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	}
 	else if (!str_comp_nocase(pCommand, "builders"))
 	{
-		int PlotID = BuildPlotID;
+		int PlotID = OwnPlotID;
+		CCharacter *pChr = pPlayer->GetCharacter();
+		if (PlotID < PLOT_START && pChr)
+		{
+			int CurrentPlotID = pChr->GetCurrentTilePlotID(true);
+			if (CurrentPlotID >= PLOT_START && pSelf->HasPlotBuildAccess(CurrentPlotID, OwnAccID))
+				PlotID = CurrentPlotID;
+		}
 
 		if (PlotID < PLOT_START)
 		{
@@ -2536,7 +2543,7 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
 		}
 	}
-	else if (BuildPlotID == 0)
+	else if (OwnPlotID == 0)
 	{
 		// check for the important commands
 		pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You need a plot to use this command"));
@@ -2546,12 +2553,6 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 		if (pPlayer->GetAccID() < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));
-			return;
-		}
-
-		if (OwnPlotID < PLOT_START || !pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
-		{
-			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
 			return;
 		}
 
@@ -2599,12 +2600,6 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 		if (pPlayer->GetAccID() < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));
-			return;
-		}
-
-		if (OwnPlotID < PLOT_START || !pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
-		{
-			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
 			return;
 		}
 

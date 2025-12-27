@@ -5594,16 +5594,16 @@ int CGameContext::GetPlotID(int AccID)
 	return 0;
 }
 
-bool CGameContext::IsPlotOwner(int PlotID, int AccID)
+bool CGameContext::IsPlotOwner(int PlotID, int AccID) const
 {
-	if (PlotID < PLOT_START || PlotID >= MAX_PLOTS || AccID < ACC_START || AccID >= (int)m_Accounts.size())
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START || AccID >= (int)m_Accounts.size())
 		return false;
 	return str_comp(m_aPlots[PlotID].m_aOwner, m_Accounts[AccID].m_Username) == 0;
 }
 
-bool CGameContext::IsPlotBuilder(int PlotID, int AccID)
+bool CGameContext::IsPlotBuilder(int PlotID, int AccID) const
 {
-	if (PlotID < PLOT_START || PlotID >= MAX_PLOTS || AccID < ACC_START)
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
 		return false;
 
 	for (unsigned int i = 0; i < m_aPlots[PlotID].m_vBuilders.size(); i++)
@@ -5612,14 +5612,14 @@ bool CGameContext::IsPlotBuilder(int PlotID, int AccID)
 	return false;
 }
 
-bool CGameContext::HasPlotBuildAccess(int PlotID, int AccID)
+bool CGameContext::HasPlotBuildAccess(int PlotID, int AccID) const
 {
 	return IsPlotOwner(PlotID, AccID) || IsPlotBuilder(PlotID, AccID);
 }
 
 bool CGameContext::AddPlotBuilder(int PlotID, int AccID)
 {
-	if (PlotID < PLOT_START || PlotID >= MAX_PLOTS || AccID < ACC_START)
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
 		return false;
 	if (Config()->m_SvPlotMaxBuilders <= 0)
 		return false;
@@ -5634,7 +5634,7 @@ bool CGameContext::AddPlotBuilder(int PlotID, int AccID)
 
 bool CGameContext::RemovePlotBuilder(int PlotID, int AccID)
 {
-	if (PlotID < PLOT_START || PlotID >= MAX_PLOTS || AccID < ACC_START)
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
 		return false;
 
 	for (unsigned int i = 0; i < m_aPlots[PlotID].m_vBuilders.size(); i++)
