@@ -5,6 +5,7 @@
 #include <engine/shared/config.h>
 
 IServer *CHouse::Server() { return GameServer()->Server(); }
+IServer *CHouse::Server() const { return GameServer()->Server(); }
 
 CHouse::CHouse(CGameContext *pGameServer, int Type)
 {

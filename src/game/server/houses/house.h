@@ -36,7 +36,9 @@ class CHouse
 protected:
 	CGameContext *m_pGameServer;
 	CGameContext *GameServer() { return m_pGameServer; }
+	CGameContext *GameServer() const { return m_pGameServer; }
 	IServer *Server();
+	IServer *Server() const;
 
 	int m_Type;
 	const char *m_pHeadline;
