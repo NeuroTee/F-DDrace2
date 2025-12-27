@@ -2388,6 +2388,14 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	int Price = pResult->NumArguments() > 1 ? max(1, str_toint(pResult->GetString(1))) : 0; // clamp price to 0
 	int OwnAccID = pSelf->m_apPlayers[pResult->m_ClientID]->GetAccID();
 	int OwnPlotID = pSelf->GetPlotID(OwnAccID);
+	int BuildPlotID = OwnPlotID;
+	CCharacter *pChr = pPlayer->GetCharacter();
+	if (pChr)
+	{
+		int CurrentPlotID = pChr->GetCurrentTilePlotID(true);
+		if (CurrentPlotID >= PLOT_START && pSelf->HasPlotBuildAccess(CurrentPlotID, OwnAccID))
+			BuildPlotID = CurrentPlotID;
+	}
 
 	if (!str_comp_nocase(pCommand, "buy"))
 	{
@@ -2624,6 +2632,12 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	}
 	else if (!str_comp_nocase(pCommand, "sell"))
 	{
+		if (!pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
+			return;
+		}
+
 		if (pPlayer->GetAccID() < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));
@@ -2675,10 +2689,16 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	}
 	else if (!str_comp_nocase(pCommand, "spawn"))
 	{
-		pPlayer->SetPlotSpawn(!pPlayer->m_PlotSpawn);
+		pPlayer->SetPlotSpawn(!pPlayer->m_PlotSpawn, BuildPlotID);
 	}
 	else if (!str_comp_nocase(pCommand, "swap"))
 	{
+		if (!pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
+			return;
+		}
+
 		if (pPlayer->GetAccID() < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));

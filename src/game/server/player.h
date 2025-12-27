@@ -348,6 +348,7 @@ public:
 	int m_PlotAuctionPrice;
 	char m_aPlotSwapUsername[32];
 	bool m_PlotSpawn;
+	int m_PlotSpawnPlotID;
 	bool m_ToggleSpawn;
 
 	bool m_HideDrawings;
@@ -418,7 +419,7 @@ public:
 	void SetWeaponIndicator(bool Set);
 	void SetZoomCursor(bool Set);
 	void SetNinjaJetpack(bool Set);
-	void SetPlotSpawn(bool Set);
+	void SetPlotSpawn(bool Set, int PlotID = 0);
 	void SetResumeMoved(bool Set);
 	void ClearPlot();
 	void StartPlotEdit();
