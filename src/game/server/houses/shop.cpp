@@ -95,8 +95,10 @@ void CShop::AddItem(const char *pName, int Level, float Price, int Time, const c
 	}
 }
 
-bool CShop::PageValid(int Page)
+bool CShop::PageValid(int ClientID, int Page)
 {
+	(void)ClientID;
+
 	return !IsType(HOUSE_SHOP) || (Page != ITEM_PORTAL_RIFLE || GameServer()->Config()->m_SvPortalRifleShop);
 }
 
