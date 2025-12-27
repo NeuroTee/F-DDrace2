@@ -491,9 +491,9 @@ public:
 	void SetPlotDrawDoorStatus(int Number, bool Close);
 	void ClearPlot(int PlotID);
 	int GetPlotID(int AccID);
-	bool IsPlotOwner(int PlotID, int AccID);
-	bool IsPlotBuilder(int PlotID, int AccID);
-	bool HasPlotBuildAccess(int PlotID, int AccID);
+	bool IsPlotOwner(int PlotID, int AccID) const;
+	bool IsPlotBuilder(int PlotID, int AccID) const;
+	bool HasPlotBuildAccess(int PlotID, int AccID) const;
 	bool AddPlotBuilder(int PlotID, int AccID);
 	bool RemovePlotBuilder(int PlotID, int AccID);
 	void ExpirePlots();
