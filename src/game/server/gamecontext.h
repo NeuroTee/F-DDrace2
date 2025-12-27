@@ -210,6 +210,7 @@ public:
 	class IConsole *Console() { return m_pConsole; }
 	IStorage* Storage() { return m_pStorage; }
 	CCollision *Collision() { return &m_Collision; }
+	const CCollision *Collision() const { return &m_Collision; }
 	CTuningParams *Tuning() { return &m_Tuning; }
 	CTuningParams *TuningFromChrOrZone(int ClientID, int Zone = -1);
 	CTuningParams* TuningList() { return &m_aTuningList[0]; }
