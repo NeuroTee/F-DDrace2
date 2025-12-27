@@ -2308,7 +2308,7 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	bool Help = !str_comp_nocase(pCommand, "help");
 	if (pResult->NumArguments() == 0 || (Help && pResult->NumArguments() == 1))
 	{
-		str_format(aBuf, sizeof(aBuf), "%s: edit, clear, sell, cancel, buy, swap, spawn, list", pPlayer->Localize("Plot subcommands"));
+		str_format(aBuf, sizeof(aBuf), "%s: edit, clear, sell, cancel, buy, swap, spawn, list, addbuilder, delbuilder, builders", pPlayer->Localize("Plot subcommands"));
 		pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
 		pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("For detailed info, type '/plot help <command>'"));
 		return;
@@ -2363,6 +2363,24 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			str_format(aBuf, sizeof(aBuf), "%s: /plot list", pPlayer->Localize("Usage"));
 			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Shows a list with all currently open plot auctions and swap offers"));
+		}
+		else if (!str_comp_nocase(pCommand, "addbuilder"))
+		{
+			str_format(aBuf, sizeof(aBuf), "%s: /plot addbuilder <name>", pPlayer->Localize("Usage"));
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Adds a builder to your plot"));
+		}
+		else if (!str_comp_nocase(pCommand, "delbuilder"))
+		{
+			str_format(aBuf, sizeof(aBuf), "%s: /plot delbuilder <name>", pPlayer->Localize("Usage"));
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Removes a builder from your plot"));
+		}
+		else if (!str_comp_nocase(pCommand, "builders"))
+		{
+			str_format(aBuf, sizeof(aBuf), "%s: /plot builders", pPlayer->Localize("Usage"));
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Shows the list of builders for the current plot"));
 		}
 		return;
 	}
@@ -2481,10 +2499,128 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 		if (!Anything)
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("There are currently no auctions or swap offers"));
 	}
+	else if (!str_comp_nocase(pCommand, "builders"))
+	{
+		int PlotID = OwnPlotID;
+		CCharacter *pChr = pPlayer->GetCharacter();
+		if (PlotID < PLOT_START && pChr)
+		{
+			int CurrentPlotID = pChr->GetCurrentTilePlotID(true);
+			if (CurrentPlotID >= PLOT_START && pSelf->HasPlotBuildAccess(CurrentPlotID, OwnAccID))
+				PlotID = CurrentPlotID;
+		}
+
+		if (PlotID < PLOT_START)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You need a plot to use this command"));
+			return;
+		}
+
+		if (pSelf->m_aPlots[PlotID].m_vBuilders.empty())
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("This plot has no builders"));
+			return;
+		}
+
+		str_format(aBuf, sizeof(aBuf), "~~~ %s ~~~", pPlayer->Localize("Plot builders"));
+		pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+		for (unsigned int i = 0; i < pSelf->m_aPlots[PlotID].m_vBuilders.size(); i++)
+		{
+			int BuilderID = pSelf->m_aPlots[PlotID].m_vBuilders[i];
+			const char *pName = BuilderID >= ACC_START && BuilderID < (int)pSelf->m_Accounts.size() ? pSelf->m_Accounts[BuilderID].m_Username : "";
+			if (pName[0])
+				str_format(aBuf, sizeof(aBuf), "%s (ID %d)", pName, BuilderID);
+			else
+				str_format(aBuf, sizeof(aBuf), "Account ID %d", BuilderID);
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+		}
+	}
 	else if (OwnPlotID == 0)
 	{
 		// check for the important commands
 		pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You need a plot to use this command"));
+	}
+	else if (!str_comp_nocase(pCommand, "addbuilder"))
+	{
+		if (pPlayer->GetAccID() < ACC_START)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));
+			return;
+		}
+
+		const char *pName = pResult->NumArguments() > 1 ? pResult->GetString(1) : "";
+		if (!pName[0])
+		{
+			str_format(aBuf, sizeof(aBuf), "%s: /plot addbuilder <name>", pPlayer->Localize("Usage"));
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+			return;
+		}
+
+		int BuilderAccID = pSelf->GetAccIDByUsername(pName);
+		if (BuilderAccID < ACC_START)
+			BuilderAccID = pSelf->GetAccount(pName);
+		if (BuilderAccID < ACC_START)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Unknown player/account"));
+			return;
+		}
+
+		if (BuilderAccID == OwnAccID)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are already the plot owner"));
+			return;
+		}
+
+		if (pSelf->IsPlotBuilder(OwnPlotID, BuilderAccID))
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("This account is already a builder"));
+			return;
+		}
+
+		if (!pSelf->AddPlotBuilder(OwnPlotID, BuilderAccID))
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("The plot has reached the builder limit"));
+			return;
+		}
+
+		pSelf->WritePlotStats(OwnPlotID);
+		str_format(aBuf, sizeof(aBuf), pPlayer->Localize("Added builder '%s'"), pName);
+		pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+	}
+	else if (!str_comp_nocase(pCommand, "delbuilder"))
+	{
+		if (pPlayer->GetAccID() < ACC_START)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not logged in"));
+			return;
+		}
+
+		const char *pName = pResult->NumArguments() > 1 ? pResult->GetString(1) : "";
+		if (!pName[0])
+		{
+			str_format(aBuf, sizeof(aBuf), "%s: /plot delbuilder <name>", pPlayer->Localize("Usage"));
+			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
+			return;
+		}
+
+		int BuilderAccID = pSelf->GetAccIDByUsername(pName);
+		if (BuilderAccID < ACC_START)
+			BuilderAccID = pSelf->GetAccount(pName);
+		if (BuilderAccID < ACC_START)
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Unknown player/account"));
+			return;
+		}
+
+		if (!pSelf->RemovePlotBuilder(OwnPlotID, BuilderAccID))
+		{
+			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("This account is not a builder"));
+			return;
+		}
+
+		pSelf->WritePlotStats(OwnPlotID);
+		str_format(aBuf, sizeof(aBuf), pPlayer->Localize("Removed builder '%s'"), pName);
+		pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
 	}
 	else if (!str_comp_nocase(pCommand, "sell"))
 	{
