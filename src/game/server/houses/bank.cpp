@@ -450,6 +450,11 @@ int CBank::GetAmount(int Type, int ClientID)
 		return 0;
 	}
 
+	return GetFixedAmount(Type);
+}
+
+int CBank::GetFixedAmount(int Type)
+{
 	switch (Type)
 	{
 	case AMOUNT_100: return 100;
