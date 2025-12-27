@@ -36,7 +36,9 @@ class CHouse
 protected:
 	CGameContext *m_pGameServer;
 	CGameContext *GameServer() { return m_pGameServer; }
+	CGameContext *GameServer() const { return m_pGameServer; }
 	IServer *Server();
+	IServer *Server() const;
 
 	int m_Type;
 	const char *m_pHeadline;
@@ -55,7 +57,9 @@ protected:
 
 	virtual int FirstPage() { return PAGE_MAIN; }
 	virtual int NumPages() { return 1; }
-	virtual bool PageValid(int Page) { return true; }
+	virtual bool PageValid(int ClientID, int Page) { return true; }
+	virtual bool HandleKeyPress(int ClientID, int Dir) { return false; }
+	virtual void OnMainPageChange(int ClientID, int Dir) {}
 
 public:
 
