@@ -103,7 +103,6 @@ void CGameContext::Construct(int Resetting)
 	m_LastMapVote = 0;
 	m_LockTeams = 0;
 	m_LastDataSaveTick = 0;
-	m_LastCreditUpdateTick = 0;
 
 	if(Resetting==NO_RESET)
 	{
@@ -1550,12 +1549,6 @@ void CGameContext::OnTick()
 		WriteMoneyListFile();
 		SaveCurrentTopAccounts();
 		m_LastDataSaveTick = Server()->Tick();
-	}
-
-	if (Server()->Tick() > m_LastCreditUpdateTick + Server()->TickSpeed() * 60)
-	{
-		UpdateCredits();
-		m_LastCreditUpdateTick = Server()->Tick();
 	}
 
 	// minigames
@@ -4419,6 +4412,7 @@ void CGameContext::FDDraceInitPreMapInit()
 		m_aPlots[i].m_ExpireDate = 0;
 		m_aPlots[i].m_Size = 0;
 		m_aPlots[i].m_ToTele = vec2(-1, -1);
+		m_aPlots[i].m_vBuilders.clear();
 		m_aPlots[i].m_vObjects.clear();
 		m_aPlots[i].m_DestroyEndTick = 0;
 		m_aPlots[i].m_DoorHealth = Config()->m_SvPlotDoorHealth;
@@ -4498,7 +4492,6 @@ void CGameContext::FDDraceInit()
 		Console()->ExecuteFile(Config()->m_SvWhitelistFile);
 
 	m_LastDataSaveTick = Server()->Tick();
-	m_LastCreditUpdateTick = Server()->Tick();
 
 	ReadMoneyListFile();
 	ReadSavedPlayersFile();
@@ -5300,6 +5293,8 @@ void CGameContext::ReadPlotStats(int ID)
 	if (!PlotFile.is_open())
 		return;
 
+	m_aPlots[ID].m_vBuilders.clear();
+	bool ObjectsAlreadyRead = false;
 	for (int i = 0; i < NUM_PLOT_VARIABLES; i++)
 	{
 		getline(PlotFile, data);
@@ -5311,8 +5306,37 @@ void CGameContext::ReadPlotStats(int ID)
 		case PLOT_DISPLAY_NAME:				str_copy(m_aPlots[ID].m_aDisplayName, pData, sizeof(m_aPlots[ID].m_aDisplayName)); break;
 		case PLOT_EXPIRE_DATE:				m_aPlots[ID].m_ExpireDate = atoi(pData); break;
 		case PLOT_DOOR_STATUS:				SetPlotDoorStatus(ID, atoi(pData)); break;
+		case PLOT_BUILDERS:
+		{
+			const char *pList = str_startswith(pData, "builders:");
+			if (!pList)
+			{
+				std::vector<CEntity *> vEntities = ReadPlotObjects(pData, ID);
+				for (unsigned int j = 0; j < vEntities.size(); j++)
+				{
+					vEntities[j]->m_PlotID = ID;
+					m_aPlots[ID].m_vObjects.push_back(vEntities[j]);
+				}
+				ObjectsAlreadyRead = true;
+				break;
+			}
+
+			char aEntry[32];
+			while ((pList = str_next_token(pList, ",", aEntry, sizeof(aEntry))))
+			{
+				int AccID = str_toint(aEntry);
+				if (AccID < ACC_START)
+					continue;
+				if (Config()->m_SvPlotMaxBuilders > 0 && (int)m_aPlots[ID].m_vBuilders.size() >= Config()->m_SvPlotMaxBuilders)
+					break;
+				if (!IsPlotOwner(ID, AccID) && !IsPlotBuilder(ID, AccID))
+					m_aPlots[ID].m_vBuilders.push_back(AccID);
+			}
+		} break;
 		case PLOT_OBJECTS:
 		{
+			if (ObjectsAlreadyRead)
+				break;
 			std::vector<CEntity *> vEntities = ReadPlotObjects(pData, ID);
 			for (unsigned int j = 0; j < vEntities.size(); j++)
 			{
@@ -5337,6 +5361,14 @@ void CGameContext::WritePlotStats(int ID)
 		PlotFile << m_aPlots[ID].m_aDisplayName << "\n";
 		PlotFile << m_aPlots[ID].m_ExpireDate << "\n";
 		PlotFile << PlotDoorStatus << "\n";
+		PlotFile << "builders:";
+		for (unsigned int i = 0; i < m_aPlots[ID].m_vBuilders.size(); i++)
+		{
+			if (i > 0)
+				PlotFile << ",";
+			PlotFile << m_aPlots[ID].m_vBuilders[i];
+		}
+		PlotFile << "\n";
 		
 		for (unsigned int i = 0; i < m_aPlots[ID].m_vObjects.size(); i++)
 			WritePlotObject(m_aPlots[ID].m_vObjects[i], &PlotFile);
@@ -5562,6 +5594,60 @@ int CGameContext::GetPlotID(int AccID)
 	return 0;
 }
 
+bool CGameContext::IsPlotOwner(int PlotID, int AccID)
+{
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START || AccID >= (int)m_Accounts.size())
+		return false;
+	return str_comp(m_aPlots[PlotID].m_aOwner, m_Accounts[AccID].m_Username) == 0;
+}
+
+bool CGameContext::IsPlotBuilder(int PlotID, int AccID)
+{
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
+		return false;
+
+	for (unsigned int i = 0; i < m_aPlots[PlotID].m_vBuilders.size(); i++)
+		if (m_aPlots[PlotID].m_vBuilders[i] == AccID)
+			return true;
+	return false;
+}
+
+bool CGameContext::HasPlotBuildAccess(int PlotID, int AccID)
+{
+	return IsPlotOwner(PlotID, AccID) || IsPlotBuilder(PlotID, AccID);
+}
+
+bool CGameContext::AddPlotBuilder(int PlotID, int AccID)
+{
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
+		return false;
+	if (Config()->m_SvPlotMaxBuilders <= 0)
+		return false;
+	if (IsPlotOwner(PlotID, AccID) || IsPlotBuilder(PlotID, AccID))
+		return false;
+	if ((int)m_aPlots[PlotID].m_vBuilders.size() >= Config()->m_SvPlotMaxBuilders)
+		return false;
+
+	m_aPlots[PlotID].m_vBuilders.push_back(AccID);
+	return true;
+}
+
+bool CGameContext::RemovePlotBuilder(int PlotID, int AccID)
+{
+	if (PlotID < PLOT_START || PlotID > Collision()->m_NumPlots || AccID < ACC_START)
+		return false;
+
+	for (unsigned int i = 0; i < m_aPlots[PlotID].m_vBuilders.size(); i++)
+	{
+		if (m_aPlots[PlotID].m_vBuilders[i] == AccID)
+		{
+			m_aPlots[PlotID].m_vBuilders.erase(m_aPlots[PlotID].m_vBuilders.begin() + i);
+			return true;
+		}
+	}
+	return false;
+}
+
 int CGameContext::GetTilePlotID(vec2 Pos, bool CheckDoor)
 {
 	int PlotDoor = CheckDoor ? Collision()->GetPlotBySwitch(Collision()->CheckPointDoor(Pos, 0, true, false)) : 0; // can use team 0 for checkpointdoor because closedonly = false
@@ -5575,6 +5661,7 @@ void CGameContext::SetPlotInfo(int PlotID, int AccID)
 
 	str_copy(m_aPlots[PlotID].m_aOwner, m_Accounts[AccID].m_Username, sizeof(m_aPlots[PlotID].m_aOwner));
 	str_copy(m_aPlots[PlotID].m_aDisplayName, m_Accounts[AccID].m_aLastPlayerName, sizeof(m_aPlots[PlotID].m_aDisplayName));
+	m_aPlots[PlotID].m_vBuilders.clear();
 	WritePlotStats(PlotID);
 }
 
@@ -5691,6 +5778,7 @@ void CGameContext::ExpirePlots()
 			m_aPlots[i].m_aOwner[0] = 0;
 			m_aPlots[i].m_aDisplayName[0] = 0;
 			m_aPlots[i].m_ExpireDate = 0;
+			m_aPlots[i].m_vBuilders.clear();
 			m_aPlots[i].m_DestroyEndTick = 0;
 			m_aPlots[i].m_DoorHealth = Config()->m_SvPlotDoorHealth;
 			ClearPlot(i);
@@ -6114,11 +6202,6 @@ int CGameContext::AddAccount()
 	Account.m_DurakWins = 0;
 	Account.m_DurakProfit = 0;
 	Account.m_aLanguage[0] = '\0';
-	Account.m_CreditDebt = 0;
-	Account.m_CreditPrincipal = 0;
-	Account.m_CreditTermDays = 0;
-	Account.m_CreditDaysLeft = 0;
-	Account.m_CreditLastInterestDate = 0;
 
 	m_Accounts.push_back(Account);
 	return m_Accounts.size()-1;
@@ -6218,11 +6301,6 @@ void CGameContext::SetAccVar(int ID, int VariableID, const char *pData)
 	case ACC_DURAK_PROFIT:				m_Accounts[ID].m_DurakProfit = atoll(pData); break;
 	case ACC_LANGUAGE:					str_copy(m_Accounts[ID].m_aLanguage, pData, sizeof(m_Accounts[ID].m_aLanguage)); break;
 	case ACC_LAST_DAILY_REWARD_DATE:	m_Accounts[ID].m_LastDailyRewardDate = atoll(pData); break;
-	case ACC_CREDIT_DEBT:				m_Accounts[ID].m_CreditDebt = atoll(pData); break;
-	case ACC_CREDIT_PRINCIPAL:			m_Accounts[ID].m_CreditPrincipal = atoll(pData); break;
-	case ACC_CREDIT_TERM_DAYS:			m_Accounts[ID].m_CreditTermDays = atoi(pData); break;
-	case ACC_CREDIT_DAYS_LEFT:			m_Accounts[ID].m_CreditDaysLeft = atoi(pData); break;
-	case ACC_CREDIT_LAST_INTEREST_DATE:	m_Accounts[ID].m_CreditLastInterestDate = atoll(pData); break;
 	}
 }
 
@@ -6286,11 +6364,6 @@ const char *CGameContext::GetAccVarName(int VariableID)
 	case ACC_DURAK_PROFIT:				return "durak_profit";
 	case ACC_LANGUAGE:					return "language";
 	case ACC_LAST_DAILY_REWARD_DATE:	return "last_daily_reward_date";
-	case ACC_CREDIT_DEBT:				return "credit_debt";
-	case ACC_CREDIT_PRINCIPAL:			return "credit_principal";
-	case ACC_CREDIT_TERM_DAYS:			return "credit_term_days";
-	case ACC_CREDIT_DAYS_LEFT:			return "credit_days_left";
-	case ACC_CREDIT_LAST_INTEREST_DATE:	return "credit_last_interest_date";
 	}
 	return "Unknown";
 }
@@ -6358,11 +6431,6 @@ const char *CGameContext::GetAccVarValue(int ID, int VariableID)
 	case ACC_DURAK_PROFIT:				str_format(aBuf, sizeof(aBuf), "%lld", m_Accounts[ID].m_DurakProfit); break;
 	case ACC_LANGUAGE:					str_copy(aBuf, m_Accounts[ID].m_aLanguage, sizeof(aBuf)); break;
 	case ACC_LAST_DAILY_REWARD_DATE:	str_format(aBuf, sizeof(aBuf), "%lld", (int64)m_Accounts[ID].m_LastDailyRewardDate); break;
-	case ACC_CREDIT_DEBT:				str_format(aBuf, sizeof(aBuf), "%lld", m_Accounts[ID].m_CreditDebt); break;
-	case ACC_CREDIT_PRINCIPAL:			str_format(aBuf, sizeof(aBuf), "%lld", m_Accounts[ID].m_CreditPrincipal); break;
-	case ACC_CREDIT_TERM_DAYS:			str_format(aBuf, sizeof(aBuf), "%d", m_Accounts[ID].m_CreditTermDays); break;
-	case ACC_CREDIT_DAYS_LEFT:			str_format(aBuf, sizeof(aBuf), "%d", m_Accounts[ID].m_CreditDaysLeft); break;
-	case ACC_CREDIT_LAST_INTEREST_DATE:	str_format(aBuf, sizeof(aBuf), "%lld", (int64)m_Accounts[ID].m_CreditLastInterestDate); break;
 	}
 	return aBuf;
 }
@@ -6684,46 +6752,6 @@ void CGameContext::WriteDonationFile(int Type, float Amount, int ID, const char 
 	str_format(aFile, sizeof(aFile), "%s/donations.txt", Config()->m_SvDonationFilePath);
 	std::ofstream DonationsFile(aFile, std::ios_base::app | std::ios_base::out);
 	DonationsFile << aBuf << "\n";
-}
-
-void CGameContext::UpdateCredits()
-{
-	if (!Config()->m_SvBankCreditEnabled)
-		return;
-
-	time_t Now;
-	time(&Now);
-	int Rate = Config()->m_SvBankCreditDailyInterest;
-
-	for (unsigned int i = ACC_START; i < m_Accounts.size(); i++)
-	{
-		AccountInfo &Account = m_Accounts[i];
-		if (Account.m_CreditDebt <= 0)
-			continue;
-
-		int DaysPassed = DaysBetween(Account.m_CreditLastInterestDate, Now);
-		if (DaysPassed <= 0)
-			continue;
-
-		for (int Day = 0; Day < DaysPassed; Day++)
-		{
-			if (Rate > 0)
-			{
-				int64 Interest = (Account.m_CreditDebt * Rate + 99) / 100;
-				if (Interest <= 0)
-					Interest = 1;
-				Account.m_CreditDebt += Interest;
-			}
-
-			if (Account.m_CreditDaysLeft > 0)
-				Account.m_CreditDaysLeft--;
-		}
-
-		if (Account.m_CreditDaysLeft < 0)
-			Account.m_CreditDaysLeft = 0;
-
-		Account.m_CreditLastInterestDate = Now;
-	}
 }
 
 void CGameContext::ReadMoneyListFile()
