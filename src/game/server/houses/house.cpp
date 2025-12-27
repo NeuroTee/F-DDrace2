@@ -119,6 +119,9 @@ void CHouse::OnLeave(int ClientID)
 
 void CHouse::OnKeyPress(int ClientID, int Dir)
 {
+	if (HandleKeyPress(ClientID, Dir))
+		return;
+
 	if (m_Type == HOUSE_BANK && m_aClients[ClientID].m_State == STATE_OPENED_WINDOW)
 	{
 		// Bank feature is disabled
@@ -195,6 +198,12 @@ void CHouse::DoPageChange(int ClientID, int Dir)
 {
 	m_aClients[ClientID].m_LastMotd = Server()->Tick();
 
+	if (m_Type == HOUSE_BANK && m_aClients[ClientID].m_Page == PAGE_MAIN)
+	{
+		OnMainPageChange(ClientID, Dir);
+		return;
+	}
+
 	if (m_Type != HOUSE_TAVERN && (m_Type != HOUSE_BANK || m_aClients[ClientID].m_Page > PAGE_MAIN))
 	{
 		do
@@ -215,7 +224,7 @@ void CHouse::DoPageChange(int ClientID, int Dir)
 				if (m_aClients[ClientID].m_Page < FirstPage())
 					m_aClients[ClientID].m_Page = NumPages() - 1;
 			}
-		} while (!PageValid(m_aClients[ClientID].m_Page));
+		} while (!PageValid(ClientID, m_aClients[ClientID].m_Page));
 	}
 
 	OnPageChange(ClientID);

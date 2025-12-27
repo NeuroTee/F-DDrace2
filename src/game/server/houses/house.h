@@ -55,7 +55,9 @@ protected:
 
 	virtual int FirstPage() { return PAGE_MAIN; }
 	virtual int NumPages() { return 1; }
-	virtual bool PageValid(int Page) { return true; }
+	virtual bool PageValid(int ClientID, int Page) { return true; }
+	virtual bool HandleKeyPress(int ClientID, int Dir) { return false; }
+	virtual void OnMainPageChange(int ClientID, int Dir) {}
 
 public:
 
