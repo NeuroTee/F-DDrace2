@@ -201,6 +201,7 @@ void CPlayer::Reset()
 	m_PlotAuctionPrice = 0;
 	m_aPlotSwapUsername[0] = '\0';
 	m_PlotSpawn = false;
+	m_PlotSpawnPlotID = 0;
 	m_ToggleSpawn = false;
 	m_CheckedSavePlayer = false;
 	m_LoadedSavedPlayer = false;
@@ -1563,7 +1564,7 @@ void CPlayer::TryRespawn()
 	}
 	else if ((m_PlotSpawn && !m_ToggleSpawn) || (!m_PlotSpawn && m_ToggleSpawn))
 	{
-		int PlotID = GameServer()->GetPlotID(GetAccID());
+		int PlotID = m_PlotSpawnPlotID > 0 ? m_PlotSpawnPlotID : GameServer()->GetPlotID(GetAccID());
 		if (PlotID > 0)
 			SpawnPos = GameServer()->m_aPlots[PlotID].m_ToTele;
 	}
@@ -2931,11 +2932,21 @@ void CPlayer::SetNinjaJetpack(bool Set)
 		GameServer()->SendChatTarget(m_ClientID, Localize("Ninjajetpack disabled"));
 }
 
-void CPlayer::SetPlotSpawn(bool Set)
+void CPlayer::SetPlotSpawn(bool Set, int PlotID)
 {
 	if (m_PlotSpawn == Set)
 		return;
 	m_PlotSpawn = Set;
+	if (Set)
+	{
+		if (PlotID <= 0)
+			PlotID = GameServer()->GetPlotID(GetAccID());
+		m_PlotSpawnPlotID = PlotID;
+	}
+	else
+	{
+		m_PlotSpawnPlotID = 0;
+	}
 	if (Set)
 		GameServer()->SendChatTarget(m_ClientID, Localize("You will now respawn at your plot (TAB+kill to join at normal spawn)"));
 	else
@@ -2955,8 +2966,15 @@ void CPlayer::SetResumeMoved(bool Set)
 
 void CPlayer::ClearPlot()
 {
+	CCharacter *pChr = GetCharacter();
 	int PlotID = GameServer()->GetPlotID(GetAccID());
-	if (PlotID < PLOT_START)
+	if (pChr)
+	{
+		int CurrentPlotID = pChr->GetCurrentTilePlotID(true);
+		if (CurrentPlotID >= PLOT_START && GameServer()->HasPlotBuildAccess(CurrentPlotID, GetAccID()))
+			PlotID = CurrentPlotID;
+	}
+	if (PlotID < PLOT_START || !GameServer()->HasPlotBuildAccess(PlotID, GetAccID()))
 	{
 		GameServer()->SendChatTarget(m_ClientID, Localize("You need a plot to use this command"));
 		return;
@@ -2968,10 +2986,10 @@ void CPlayer::ClearPlot()
 void CPlayer::StartPlotEdit()
 {
 	CCharacter *pChr = GetCharacter();
-	int PlotID = GameServer()->GetPlotID(GetAccID());
-	if (PlotID < PLOT_START)
+	int AccID = GetAccID();
+	if (AccID < ACC_START)
 	{
-		GameServer()->SendChatTarget(m_ClientID, Localize("You need a plot to use this command"));
+		GameServer()->SendChatTarget(m_ClientID, Localize("You are not logged in"));
 		return;
 	}
 	if (!pChr)
@@ -2979,9 +2997,18 @@ void CPlayer::StartPlotEdit()
 		GameServer()->SendChatTarget(m_ClientID, Localize("You have to be alive to edit your plot"));
 		return;
 	}
-	else if (pChr->GetCurrentTilePlotID() != PlotID)
+	int PlotID = pChr->GetCurrentTilePlotID();
+	if (PlotID < PLOT_START)
 	{
-		GameServer()->SendChatTarget(m_ClientID, Localize("You have to be inside your plot to edit your plot"));
+		if (GameServer()->GetPlotID(AccID) >= PLOT_START)
+			GameServer()->SendChatTarget(m_ClientID, Localize("You have to be inside your plot to edit your plot"));
+		else
+			GameServer()->SendChatTarget(m_ClientID, Localize("You need a plot to use this command"));
+		return;
+	}
+	else if (!GameServer()->HasPlotBuildAccess(PlotID, AccID))
+	{
+		GameServer()->SendChatTarget(m_ClientID, Localize("You are not allowed to edit this plot"));
 		return;
 	}
 	else if (GameServer()->PlotCanBeRaided(PlotID))
