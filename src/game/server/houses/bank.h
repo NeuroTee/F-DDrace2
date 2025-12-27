@@ -48,13 +48,12 @@ enum CreditStep
 class CBank : public CHouse
 {
 private:
-	static int GetFixedAmount(int Type);
-	int GetAmount(int Type, int ClientID = -1) const;
-	int GetCreditTermDays(int Type);
-	bool IsAmountPage(int Page);
-	bool IsTermPage(int Page);
-	int GetFirstCreditAmountPage(int ClientID);
-	int GetFirstCreditTermPage();
+	int GetAmount(int Type, int ClientID = -1);
+	int GetCreditTermDays(int Type) const;
+	bool IsAmountPage(int Page) const;
+	bool IsTermPage(int Page) const;
+	int GetFirstCreditAmountPage(int ClientID) const;
+	int GetFirstCreditTermPage() const;
 	int m_aAssignmentMode[MAX_CLIENTS];
 	int m_aCreditStep[MAX_CLIENTS];
 	int m_aCreditAmountPage[MAX_CLIENTS];
