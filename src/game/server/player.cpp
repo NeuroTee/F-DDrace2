@@ -2968,10 +2968,10 @@ void CPlayer::ClearPlot()
 void CPlayer::StartPlotEdit()
 {
 	CCharacter *pChr = GetCharacter();
-	int PlotID = GameServer()->GetPlotID(GetAccID());
-	if (PlotID < PLOT_START)
+	int AccID = GetAccID();
+	if (AccID < ACC_START)
 	{
-		GameServer()->SendChatTarget(m_ClientID, Localize("You need a plot to use this command"));
+		GameServer()->SendChatTarget(m_ClientID, Localize("You are not logged in"));
 		return;
 	}
 	if (!pChr)
@@ -2979,9 +2979,18 @@ void CPlayer::StartPlotEdit()
 		GameServer()->SendChatTarget(m_ClientID, Localize("You have to be alive to edit your plot"));
 		return;
 	}
-	else if (pChr->GetCurrentTilePlotID() != PlotID)
+	int PlotID = pChr->GetCurrentTilePlotID();
+	if (PlotID < PLOT_START)
 	{
-		GameServer()->SendChatTarget(m_ClientID, Localize("You have to be inside your plot to edit your plot"));
+		if (GameServer()->GetPlotID(AccID) >= PLOT_START)
+			GameServer()->SendChatTarget(m_ClientID, Localize("You have to be inside your plot to edit your plot"));
+		else
+			GameServer()->SendChatTarget(m_ClientID, Localize("You need a plot to use this command"));
+		return;
+	}
+	else if (!GameServer()->HasPlotBuildAccess(PlotID, AccID))
+	{
+		GameServer()->SendChatTarget(m_ClientID, Localize("You are not allowed to edit this plot"));
 		return;
 	}
 	else if (GameServer()->PlotCanBeRaided(PlotID))

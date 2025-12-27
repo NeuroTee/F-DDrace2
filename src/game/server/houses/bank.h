@@ -21,11 +21,6 @@ enum BankPages
 	AMOUNT_10MIL,
 	AMOUNT_50MIL,
 	AMOUNT_100MIL,
-	TERM_1D,
-	TERM_3D,
-	TERM_7D,
-	TERM_14D,
-	TERM_30D,
 	NUM_PAGES_BANK
 };
 
@@ -34,30 +29,14 @@ enum BankAssignment
 	ASSIGNMENT_NONE,
 	ASSIGNMENT_DEPOSIT,
 	ASSIGNMENT_WITHDRAW,
-	ASSIGNMENT_CREDIT,
-};
-
-enum CreditStep
-{
-	CREDIT_STEP_NONE,
-	CREDIT_STEP_AMOUNT,
-	CREDIT_STEP_TERM,
-	CREDIT_STEP_PAYMENT,
 };
 
 class CBank : public CHouse
 {
 private:
 	int GetAmount(int Type, int ClientID = -1);
-	int GetCreditTermDays(int Type) const;
 	bool IsAmountPage(int Page) const;
-	bool IsTermPage(int Page) const;
-	int GetFirstCreditAmountPage(int ClientID) const;
-	int GetFirstCreditTermPage() const;
 	int m_aAssignmentMode[MAX_CLIENTS];
-	int m_aCreditStep[MAX_CLIENTS];
-	int m_aCreditAmountPage[MAX_CLIENTS];
-	int64 m_aCreditAmount[MAX_CLIENTS];
 	bool NotLoggedIn(int ClientID);
 
 	virtual int FirstPage() { return AMOUNT_EVERYTHING; }
