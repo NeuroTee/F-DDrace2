@@ -2509,7 +2509,14 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 	}
 	else if (!str_comp_nocase(pCommand, "builders"))
 	{
-		int PlotID = BuildPlotID;
+		int PlotID = OwnPlotID;
+		CCharacter *pChr = pPlayer->GetCharacter();
+		if (PlotID < PLOT_START && pChr)
+		{
+			int CurrentPlotID = pChr->GetCurrentTilePlotID(true);
+			if (CurrentPlotID >= PLOT_START && pSelf->HasPlotBuildAccess(CurrentPlotID, OwnAccID))
+				PlotID = CurrentPlotID;
+		}
 
 		if (PlotID < PLOT_START)
 		{
@@ -2536,7 +2543,7 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			pSelf->SendChatTarget(pResult->m_ClientID, aBuf);
 		}
 	}
-	else if (BuildPlotID == 0)
+	else if (OwnPlotID == 0)
 	{
 		// check for the important commands
 		pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You need a plot to use this command"));
@@ -2549,12 +2556,6 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			return;
 		}
 
-		if (OwnPlotID < PLOT_START || !pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
-		{
-			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
-			return;
-		}
-
 		const char *pName = pResult->NumArguments() > 1 ? pResult->GetString(1) : "";
 		if (!pName[0])
 		{
@@ -2563,15 +2564,15 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			return;
 		}
 
-		int BuilderClientID = pSelf->GetCIDByName(pName);
-		CPlayer *pBuilder = BuilderClientID >= 0 ? pSelf->m_apPlayers[BuilderClientID] : 0;
-		if (!pBuilder || pBuilder->GetAccID() < ACC_START)
+		int BuilderAccID = pSelf->GetAccIDByUsername(pName);
+		if (BuilderAccID < ACC_START)
+			BuilderAccID = pSelf->GetAccount(pName);
+		if (BuilderAccID < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Unknown player/account"));
 			return;
 		}
 
-		int BuilderAccID = pBuilder->GetAccID();
 		if (BuilderAccID == OwnAccID)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are already the plot owner"));
@@ -2602,12 +2603,6 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			return;
 		}
 
-		if (OwnPlotID < PLOT_START || !pSelf->IsPlotOwner(OwnPlotID, OwnAccID))
-		{
-			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("You are not allowed to edit this plot"));
-			return;
-		}
-
 		const char *pName = pResult->NumArguments() > 1 ? pResult->GetString(1) : "";
 		if (!pName[0])
 		{
@@ -2616,15 +2611,15 @@ void CGameContext::ConPlot(IConsole::IResult* pResult, void* pUserData)
 			return;
 		}
 
-		int BuilderClientID = pSelf->GetCIDByName(pName);
-		CPlayer *pBuilder = BuilderClientID >= 0 ? pSelf->m_apPlayers[BuilderClientID] : 0;
-		if (!pBuilder || pBuilder->GetAccID() < ACC_START)
+		int BuilderAccID = pSelf->GetAccIDByUsername(pName);
+		if (BuilderAccID < ACC_START)
+			BuilderAccID = pSelf->GetAccount(pName);
+		if (BuilderAccID < ACC_START)
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("Unknown player/account"));
 			return;
 		}
 
-		int BuilderAccID = pBuilder->GetAccID();
 		if (!pSelf->RemovePlotBuilder(OwnPlotID, BuilderAccID))
 		{
 			pSelf->SendChatTarget(pResult->m_ClientID, pPlayer->Localize("This account is not a builder"));
