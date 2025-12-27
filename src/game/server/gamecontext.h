@@ -105,7 +105,7 @@ enum
 	MAX_PASSWORD_LENGTH = 128,
 
 	// update this one with every acc change you do
-	ACC_CURRENT_VERSION = 17,
+	ACC_CURRENT_VERSION = 18,
 
 	// vip
 	VIP_CLASSIC = 1,
@@ -567,11 +567,8 @@ public:
 	int64 m_aNeededXP[DIFFERENCE_XP_END];
 	int64 GetNeededXP(int Level);
 	int m_LastDataSaveTick;
-	int m_LastCreditUpdateTick;
-
 	const char *GetDate(time_t Time, bool ShowTime = true);
 	void WriteDonationFile(int Type, float Amount, int ID, const char *pDescription);
-	void UpdateCredits();
 
 	struct AccountInfo
 	{
@@ -625,11 +622,6 @@ public:
 		int64 m_DurakProfit;
 		char m_aLanguage[32];
 		time_t m_LastDailyRewardDate;
-		int64 m_CreditDebt;
-		int64 m_CreditPrincipal;
-		int m_CreditTermDays;
-		int m_CreditDaysLeft;
-		time_t m_CreditLastInterestDate;
 	};
 	std::vector<AccountInfo> m_Accounts;
 
@@ -693,11 +685,6 @@ public:
 		ACC_DURAK_PROFIT,
 		ACC_LANGUAGE,
 		ACC_LAST_DAILY_REWARD_DATE,
-		ACC_CREDIT_DEBT,
-		ACC_CREDIT_PRINCIPAL,
-		ACC_CREDIT_TERM_DAYS,
-		ACC_CREDIT_DAYS_LEFT,
-		ACC_CREDIT_LAST_INTEREST_DATE,
 		NUM_ACCOUNT_VARIABLES
 	};
 
